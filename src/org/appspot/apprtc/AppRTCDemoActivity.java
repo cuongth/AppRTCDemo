@@ -44,7 +44,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.webrtc.DataChannel;
 import org.webrtc.IceCandidate;
-import org.webrtc.Logging;
 import org.webrtc.MediaConstraints;
 import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
@@ -59,7 +58,6 @@ import org.webrtc.VideoRenderer.I420Frame;
 import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 
-import java.util.EnumSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -180,13 +178,13 @@ public class AppRTCDemoActivity extends Activity
 
   // Just for fun (and to regression-test bug 2302) make sure that DataChannels
   // can be created, queried, and disposed.
-  private static void createDataChannelToRegressionTestBug2302(
-      PeerConnection pc) {
-    DataChannel dc = pc.createDataChannel("dcLabel", new DataChannel.Init());
-    abortUnless("dcLabel".equals(dc.label()), "Unexpected label corruption?");
-    dc.close();
-    dc.dispose();
-  }
+//  private static void createDataChannelToRegressionTestBug2302(
+//      PeerConnection pc) {
+//    DataChannel dc = pc.createDataChannel("dcLabel", new DataChannel.Init());
+//    abortUnless("dcLabel".equals(dc.label()), "Unexpected label corruption?");
+//    dc.close();
+//    dc.dispose();
+//  }
 
   @Override
   public void onIceServers(List<PeerConnection.IceServer> iceServers) {
@@ -197,7 +195,8 @@ public class AppRTCDemoActivity extends Activity
         new MediaConstraints.KeyValuePair("RtpDataChannels", "true"));
     pc = factory.createPeerConnection(iceServers, pcConstraints, pcObserver);
 
-    createDataChannelToRegressionTestBug2302(pc);  // See method comment.
+// cuongth: See method comment.
+//    createDataChannelToRegressionTestBug2302(pc);
 
     // Uncomment to get ALL WebRTC tracing and SENSITIVE libjingle logging.
     // NOTE: this _must_ happen while |factory| is alive!
@@ -206,31 +205,32 @@ public class AppRTCDemoActivity extends Activity
     //     EnumSet.of(Logging.TraceLevel.TRACE_ALL),
     //     Logging.Severity.LS_SENSITIVE);
 
-    {
-      final PeerConnection finalPC = pc;
-      final Runnable repeatedStatsLogger = new Runnable() {
-          public void run() {
-            synchronized (quit[0]) {
-              if (quit[0]) {
-                return;
-              }
-              final Runnable runnableThis = this;
-              boolean success = finalPC.getStats(new StatsObserver() {
-                  public void onComplete(StatsReport[] reports) {
-                    for (StatsReport report : reports) {
-                      Log.d(TAG, "Stats: " + report.toString());
-                    }
-                    vsv.postDelayed(runnableThis, 10000);
-                  }
-                }, null);
-              if (!success) {
-                throw new RuntimeException("getStats() return false!");
-              }
-            }
-          }
-        };
-      vsv.postDelayed(repeatedStatsLogger, 10000);
-    }
+// cuongth: don't need to check stats
+//    {
+//      final PeerConnection finalPC = pc;
+//      final Runnable repeatedStatsLogger = new Runnable() {
+//          public void run() {
+//            synchronized (quit[0]) {
+//              if (quit[0]) {
+//                return;
+//              }
+//              final Runnable runnableThis = this;
+//              boolean success = finalPC.getStats(new StatsObserver() {
+//                  public void onComplete(StatsReport[] reports) {
+//                    for (StatsReport report : reports) {
+//                      Log.d(TAG, "Stats: " + report.toString());
+//                    }
+//                    vsv.postDelayed(runnableThis, 10000);
+//                  }
+//                }, null);
+//              if (!success) {
+//                throw new RuntimeException("getStats() return false!");
+//              }
+//            }
+//          }
+//        };
+//      vsv.postDelayed(repeatedStatsLogger, 10000);
+//    }
 
     {
       logAndToast("Creating local video source...");
@@ -517,6 +517,8 @@ public class AppRTCDemoActivity extends Activity
   private class GAEHandler implements GAEChannelClient.MessageHandler {
     @JavascriptInterface public void onOpen() {
       if (!appRtcClient.isInitiator()) {
+    	// cuongth: There's only you in room.
+    	// Next participant will send you offer sdp.
         return;
       }
       logAndToast("Creating offer...");

@@ -151,11 +151,6 @@ public class AppRTCClient {
         String gaeBaseHref, String channelToken, String postMessageUrl,
         boolean initiator, MediaConstraints pcConstraints,
         MediaConstraints videoConstraints, MediaConstraints audioConstraints) {
-      // cuongth: DEBUG
-      Log.w("AppRTCSignalingParameters", gaeBaseHref + "\nchannelToken:" + channelToken +
-    		  "\npostUrl: " + postMessageUrl +
-    		  "\nvideoConstraints: " + videoConstraints +
-    		  "\naudioConstraints: " + audioConstraints);
       this.iceServers = iceServers;
       this.gaeBaseHref = gaeBaseHref;
       this.channelToken = channelToken;
@@ -227,13 +222,13 @@ public class AppRTCClient {
 
     @Override
     protected void onPostExecute(AppRTCSignalingParameters params) {
-      channelClient =
-          new GAEChannelClient(activity, params.channelToken, gaeHandler);
-      synchronized (sendQueue) {
-        appRTCSignalingParameters = params;
-      }
+      appRTCSignalingParameters = params;
       requestQueueDrainInBackground();
       iceServersObserver.onIceServers(appRTCSignalingParameters.iceServers);
+      // cuongth: after PeerConnection was created by PeerConnectionFactory,
+      // PeerConnection can create offer / add candidate / set remote sdp.
+      channelClient =
+              new GAEChannelClient(activity, params.channelToken, gaeHandler);
     }
 
     // Fetches |url| and fishes the signaling parameters out of the HTML via
@@ -260,12 +255,12 @@ public class AppRTCClient {
       String postMessageUrl = "/message?r=" +
           getVarValue(roomHtml, "roomKey", true) + "&u=" +
           getVarValue(roomHtml, "me", true);
-      boolean initiator = getVarValue(roomHtml, "initiator", false).equals("1");
-      // cuongth: DEBUG
-      String pcConfigStr = getVarValue(roomHtml, "pcConfig", false);
-      Log.w("Cuong1", pcConfigStr);
+      // cuongth: the first person in room, initStr = 0 [I don't send offer]
+      // the next one, initStr = 1 [I send offer to the first person] 
+      String initStr = getVarValue(roomHtml, "initiator", false);
+      boolean initiator = initStr.equals("1");
       LinkedList<PeerConnection.IceServer> iceServers =
-          iceServersFromPCConfigJSON(pcConfigStr);
+          iceServersFromPCConfigJSON(getVarValue(roomHtml, "pcConfig", false));
 
 // TODO cuongth: add own TURN server,
 // POST request to https://computeengineondemand.appspot.com is slow dog.      
@@ -462,6 +457,9 @@ public class AppRTCClient {
   // Send all queued messages if connected to the room.
   private void maybeDrainQueue() {
     synchronized (sendQueue) {
+      if (sendQueue.isEmpty()) {
+    	  return;
+      }
       if (appRTCSignalingParameters == null) {
         return;
       }
@@ -476,8 +474,7 @@ public class AppRTCClient {
             throw new IOException(
                 "Non-200 response to POST: " + connection.getHeaderField(null) +
                 " for msg: " + msg);
-          }
-        }
+          }        }
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
